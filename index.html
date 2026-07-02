@@ -1,67 +1,138 @@
-// Optional: deploy this if the public CORS proxies get flaky.
-// It's free, serverless, and takes ~2 minutes.
-//
-// Deploy (no install needed):
-//   1. https://dash.cloudflare.com  ->  Workers & Pages  ->  Create  ->  Worker
-//   2. Replace the default code with this file, click Deploy.
-//   3. Copy the URL, e.g. https://yt-proxy.YOURNAME.workers.dev
-//   4. In the app's Settings, pick "Vlastní Cloudflare Worker" and paste:
-//        https://yt-proxy.YOURNAME.workers.dev/?url=
-//
-// Optional hardening: restrict ALLOW_ORIGIN to your GitHub Pages origin
-// and only allow youtube.com targets (both shown below, commented).
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Přepis YouTube</title>
+    <meta name="description" content="Vlož odkaz na YouTube video a přečti si přepis." />
+    <meta name="theme-color" content="#12131a" />
 
-export default {
-  async fetch(request) {
-    const ALLOW_ORIGIN = "*"; // e.g. "https://YOURNAME.github.io"
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Přepis" />
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: cors(ALLOW_ORIGIN) });
-    }
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="bar">
+        <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+          <rect width="512" height="512" rx="112" fill="#12131a" />
+          <polygon points="123,205 123,307 191,256" fill="#f5b642" />
+          <rect x="225" y="180" width="164" height="23" rx="11" fill="#ececE6" />
+          <rect x="225" y="245" width="134" height="23" rx="11" fill="#ececE6" />
+          <rect x="225" y="310" width="98" height="23" rx="11" fill="#8a8fa0" />
+        </svg>
+        <span class="wordmark">Pře<span class="accent">pis</span></span>
+      </header>
 
-    const target = new URL(request.url).searchParams.get("url");
-    if (!target) {
-      return json({ error: "missing ?url=" }, 400, ALLOW_ORIGIN);
-    }
+      <section class="input-card">
+        <div class="input-row">
+          <input
+            id="url-input"
+            type="url"
+            inputmode="url"
+            placeholder="Vlož odkaz na YouTube video…"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="subrow">
+          <button id="paste-btn" class="btn ghost">Vložit ze schránky</button>
+          <button id="load-btn" class="btn">Načíst</button>
+        </div>
+      </section>
 
-    // Optional: only proxy YouTube to avoid becoming an open relay.
-    // if (!/^https:\/\/(www\.)?youtube\.com\//.test(target)) {
-    //   return json({ error: "blocked target" }, 403, ALLOW_ORIGIN);
-    // }
+      <div id="status" class="status"></div>
 
-    try {
-      const upstream = await fetch(target, {
-        headers: {
-          "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "accept-language": "cs-CZ,cs;q=0.9,en;q=0.8",
-        },
-        redirect: "follow",
-      });
+      <section id="meta" class="meta">
+        <h2 id="meta-title"></h2>
+        <div class="chips">
+          <span id="chip-author" class="chip author"></span>
+          <span id="chip-lang" class="chip"></span>
+          <span id="chip-count" class="chip"></span>
+        </div>
+      </section>
 
-      const body = await upstream.arrayBuffer();
-      const headers = cors(ALLOW_ORIGIN);
-      headers.set(
-        "content-type",
-        upstream.headers.get("content-type") || "text/plain; charset=utf-8"
-      );
-      return new Response(body, { status: upstream.status, headers });
-    } catch (e) {
-      return json({ error: String(e) }, 502, ALLOW_ORIGIN);
-    }
-  },
-};
+      <div id="controls" class="controls">
+        <div class="search">
+          <input id="search-input" type="text" placeholder="Hledat v přepisu…" />
+        </div>
+        <label class="toggle">
+          <input id="with-time" type="checkbox" checked />
+          časy
+        </label>
+      </div>
 
-function cors(origin) {
-  const h = new Headers();
-  h.set("access-control-allow-origin", origin);
-  h.set("access-control-allow-methods", "GET, OPTIONS");
-  h.set("access-control-allow-headers", "*");
-  return h;
-}
+      <div id="empty" class="empty">
+        Vlož odkaz na video s titulky a zobrazí se přepis.<br />
+        Ťuknutím na čas otevřeš video na daném místě.
+      </div>
 
-function json(obj, status, origin) {
-  const h = cors(origin);
-  h.set("content-type", "application/json");
-  return new Response(JSON.stringify(obj), { status, headers: h });
-}
+      <article id="transcript" class="transcript"></article>
+
+      <div id="actions" class="actions">
+        <div class="actions-row">
+          <button id="ai-copy-btn" class="btn">Kopírovat pro AI</button>
+          <button id="share-btn" class="btn ghost">Sdílet</button>
+        </div>
+        <div class="actions-row">
+          <button id="copy-btn" class="btn ghost">Kopírovat text</button>
+          <button id="download-btn" class="btn ghost">Stáhnout .txt</button>
+        </div>
+      </div>
+
+      <details class="settings">
+        <summary>Nastavení</summary>
+        <div class="settings-body">
+          <div>
+            <label for="lang-input">Preferovaný jazyk titulků</label>
+            <select id="lang-input">
+              <option value="cs,en">Čeština, pak angličtina</option>
+              <option value="en,cs">Angličtina, pak čeština</option>
+              <option value="cs">Jen čeština</option>
+              <option value="en">Jen angličtina</option>
+            </select>
+          </div>
+          <div>
+            <label for="prompt-input">Prompt pro AI (tlačítka „Kopírovat pro AI" a „Sdílet")</label>
+            <textarea id="prompt-input" rows="6" spellcheck="false"></textarea>
+            <p class="hint"><code>{title}</code> se nahradí názvem videa, přepis se připojí na konec.</p>
+          </div>
+          <div>
+            <label for="proxy-select">CORS proxy</label>
+            <select id="proxy-select">
+              <option value="allorigins">AllOrigins (výchozí)</option>
+              <option value="corsproxy">corsproxy.io</option>
+              <option value="codetabs">CodeTabs</option>
+              <option value="worker">Vlastní Cloudflare Worker</option>
+            </select>
+          </div>
+          <div id="worker-wrap">
+            <label for="worker-input">URL Workeru (musí končit <code>?url=</code>)</label>
+            <input
+              id="worker-input"
+              type="text"
+              placeholder="https://nazev.ucet.workers.dev/?url="
+            />
+          </div>
+          <p class="hint">
+            Stránka běží bez vlastního serveru, takže požadavky na YouTube musí
+            jít přes CORS proxy. Veřejné proxy občas spadnou nebo mají limit — appka
+            je při chybě automaticky vystřídá. Pro 100% spolehlivost nasaď vlastní
+            Worker (viz <code>cloudflare-worker.js</code> v repu) a vlož jeho URL sem.
+          </p>
+        </div>
+      </details>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

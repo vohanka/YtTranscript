@@ -1,83 +1,258 @@
-# Přepis YouTube
+:root {
+  --ink: #12131a;
+  --ink-2: #1b1d26;
+  --ink-3: #232634;
+  --line: #2c2f3d;
+  --paper: #ececE6;
+  --muted: #8a8fa0;
+  --amber: #f5b642;
+  --amber-dim: #b9882f;
+  --danger: #ff7a7a;
+  --r: 14px;
 
-Frontendová PWA bez vlastního backendu. Vlož odkaz na YouTube video → zobrazí se
-přepis (s časy, hledáním, kopírováním a exportem do `.txt`). Na mobilu jde přidat
-na plochu a chovat se jako nativní appka. Ťuknutí na čas otevře video na daném
-místě (na mobilu deep-linkem do YouTube appky).
+  --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+}
 
-## Nasazení na GitHub Pages
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-1. Vytvoř repo a nahraj do něj obsah složky `yt-transcript-web` (soubory musí být
-   v kořeni repa, ne ve vnořené složce).
-2. **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
-   branch `main`, složka `/ (root)`, Save.
-3. Za chvíli appka pojede na `https://TVUJ-NICK.github.io/NAZEV-REPA/`.
+html { color-scheme: dark; }
 
-> Pages servíruje přes HTTPS, což PWA i CORS proxy vyžadují. Hotovo.
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  /* respect notches / home indicator on mobile */
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
 
-## Instalace na mobil (Přidat na plochu)
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+}
 
-- **Android / Chrome:** otevři URL → menu (⋮) → *Přidat na plochu* / *Instalovat aplikaci*.
-- **iOS / Safari:** otevři URL → Sdílet → *Přidat na plochu*.
+/* ---- header ---- */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 18px;
+}
+.mark {
+  width: 30px; height: 30px; flex: none;
+}
+.wordmark {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+.wordmark .accent { color: var(--amber); }
 
-Pak se spouští na celou obrazovku s vlastní ikonou.
+/* ---- input zone ---- */
+.input-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 12px;
+}
+.input-row { display: flex; gap: 8px; }
+textarea { resize: vertical; min-height: 110px; }
+input[type="url"], input[type="text"], select, textarea {
+  width: 100%;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  border-radius: 10px;
+  padding: 12px 12px;
+  font-size: 16px; /* >=16px stops iOS zoom-on-focus */
+  font-family: var(--sans);
+}
+input::placeholder { color: var(--muted); }
 
-## Shrnutí videa přes AI (hlavní workflow)
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 650;
+  font-family: var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--amber);
+  color: #2a1d05;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; }
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--paper);
+}
+.btn.tiny { padding: 8px 12px; font-size: 13px; font-weight: 600; }
 
-Use case: půlhodinové video, podezření, že v něm nic není → chci verdikt od AI.
+.subrow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.subrow .btn.ghost { flex: 1; }
 
-**Android (nejrychlejší):** nainstaluj PWA na plochu. Pak v YouTube appce
-*Sdílet → Přepis* — přepis se sám načte. Ťukni **Kopírovat pro AI** (zkopíruje
-přepis i s promptem „shrň + verdikt, jestli to sledovat") a vlož do Claude /
-ChatGPT appky. Nebo ťukni **Sdílet** a pošli text rovnou do AI appky přes share
-sheet.
+/* ---- status ---- */
+.status {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 2px 4px;
+}
+.status.error { color: var(--danger); }
+.spinner {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid var(--line);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 7px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-**iOS:** Web Share Target Safari neumí, takže: zkopíruj odkaz videa → otevři
-Přepis → *Vložit ze schránky* → **Kopírovat pro AI** → vlož do Claude/ChatGPT.
+/* ---- meta ---- */
+.meta { display: none; padding: 4px 2px 0; }
+.meta.show { display: block; }
+.meta h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 6px 0 8px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.chip.author { font-family: var(--sans); }
 
-Prompt jde upravit v *Nastavení* (placeholder `{title}` se nahradí názvem
-videa). Žádný API klíč není potřeba — používáš AI appky, které už máš.
+/* ---- controls above transcript ---- */
+.controls {
+  display: none;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 2px 10px;
+}
+.controls.show { display: flex; }
+.search {
+  flex: 1;
+  position: relative;
+}
+.toggle {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--muted);
+  user-select: none; cursor: pointer; white-space: nowrap;
+}
+.toggle input { accent-color: var(--amber); width: 16px; height: 16px; }
 
-## Jak to funguje
+/* ---- transcript reading column ---- */
+.transcript { display: none; }
+.transcript.show { display: block; }
 
-```
-odkaz ─► videoId ─► (přes CORS proxy) fetch watch stránky
-       ─► extrakce ytInitialPlayerResponse (balanced-brace parser)
-       ─► captionTracks[].baseUrl + "&fmt=json3"
-       ─► (přes CORS proxy) fetch JSON ─► text + časy ─► render
-```
+.seg {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+  padding: 5px 0;
+  align-items: baseline;
+}
+.seg + .seg { border-top: 1px solid rgba(44,47,61,0.5); }
+.t {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  background: none;
+  border: none;
+  text-align: right;
+  cursor: pointer;
+  padding: 2px 0;
+  letter-spacing: -0.02em;
+}
+.t:hover { color: #ffce6e; text-decoration: underline; }
+.seg .text {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--paper);
+}
+.seg mark {
+  background: var(--amber);
+  color: #2a1d05;
+  border-radius: 3px;
+  padding: 0 2px;
+}
 
-Proč proxy: stránka běží na jiné doméně než youtube.com a YouTube nevrací CORS
-hlavičky, takže přímý `fetch` prohlížeč zablokuje. Proxy přidá
-`Access-Control-Allow-Origin`. To je jediný důvod, proč tu proxy je.
+/* plain (no timestamp) mode = continuous prose */
+.transcript.plain { font-family: var(--serif); font-size: 17px; line-height: 1.7; }
+.transcript.plain .seg { display: inline; border: none; padding: 0; }
+.transcript.plain .t { display: none; }
+.transcript.plain .text { display: inline; }
+.transcript.plain .text::after { content: " "; }
 
-## CORS proxy a spolehlivost
+/* ---- bottom action bar ---- */
+.actions {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 22px;
+  position: sticky;
+  bottom: 8px;
+  background: var(--ink);
+  padding-top: 8px;
+}
+.actions.show { display: flex; }
+.actions-row { display: flex; gap: 8px; }
+.actions-row .btn { flex: 1; }
+.actions .btn.ghost { background: var(--ink-2); }
 
-Výchozí jsou veřejné proxy (AllOrigins → corsproxy.io → CodeTabs) a appka je při
-chybě **automaticky vystřídá**. Jsou zdarma, ale občas spadnou, zpomalí nebo mají
-rate-limit.
+/* ---- settings ---- */
+details.settings {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+details.settings summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  list-style: none;
+}
+details.settings summary::-webkit-details-marker { display: none; }
+details.settings summary::before { content: "⚙  "; }
+.settings-body { padding: 14px 0 4px; display: grid; gap: 10px; }
+.settings-body label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; }
+.hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.hint code { font-family: var(--mono); background: var(--ink-3); padding: 1px 5px; border-radius: 5px; }
+a { color: var(--amber); }
 
-**Pro 100% spolehlivost** nasaď vlastní Cloudflare Worker — viz
-[`cloudflare-worker.js`](./cloudflare-worker.js) (návod nahoře v souboru). Zdarma,
-~2 minuty, žádná instalace. Pak v *Nastavení* appky vyber „Vlastní Cloudflare
-Worker" a vlož jeho URL končící `?url=`.
-
-## Limity
-
-- Funguje jen na videích s titulky (manuální i auto-generované).
-- YouTube občas u některých videí zaškrtne baseUrl `pot` tokenem → prázdná
-  odpověď. Běžná veřejná videa projdou.
-- Když se YouTube formát změní, nejspíš bude potřeba doladit `extractJsonAfter`
-  nebo cestu ke `captionTracks` v `app.js`.
-
-## Soubory
-
-| soubor | role |
-|---|---|
-| `index.html` | UI |
-| `styles.css` | styl (mobile-first) |
-| `app.js` | parsování URL, fetch přes proxy, extrakce a render přepisu |
-| `manifest.webmanifest` | PWA manifest |
-| `sw.js` | service worker (offline shell + instalace) |
-| `cloudflare-worker.js` | volitelná vlastní proxy |
-| `icons/` | ikony appky |
+.empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 40px 20px;
+  display: block;
+}
+.empty.hide { display: none; }
