@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Přepis YouTube</title>
+    <meta name="description" content="Vlož odkaz na YouTube video a přečti si přepis." />
+    <meta name="theme-color" content="#12131a" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Přepis" />
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="bar">
+        <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+          <rect width="512" height="512" rx="112" fill="#12131a" />
+          <polygon points="123,205 123,307 191,256" fill="#f5b642" />
+          <rect x="225" y="180" width="164" height="23" rx="11" fill="#ececE6" />
+          <rect x="225" y="245" width="134" height="23" rx="11" fill="#ececE6" />
+          <rect x="225" y="310" width="98" height="23" rx="11" fill="#8a8fa0" />
+        </svg>
+        <span class="wordmark">Pře<span class="accent">pis</span></span>
+      </header>
+
+      <section class="input-card">
+        <div class="input-row">
+          <input
+            id="url-input"
+            type="url"
+            inputmode="url"
+            placeholder="Vlož odkaz na YouTube video…"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="subrow">
+          <button id="paste-btn" class="btn ghost">Vložit ze schránky</button>
+          <button id="load-btn" class="btn">Načíst</button>
+        </div>
+      </section>
+
+      <div id="status" class="status"></div>
+
+      <section id="meta" class="meta">
+        <h2 id="meta-title"></h2>
+        <div class="chips">
+          <span id="chip-author" class="chip author"></span>
+          <span id="chip-lang" class="chip"></span>
+          <span id="chip-count" class="chip"></span>
+        </div>
+      </section>
+
+      <div id="controls" class="controls">
+        <div class="search">
+          <input id="search-input" type="text" placeholder="Hledat v přepisu…" />
+        </div>
+        <label class="toggle">
+          <input id="with-time" type="checkbox" checked />
+          časy
+        </label>
+      </div>
+
+      <div id="empty" class="empty">
+        Vlož odkaz na video s titulky a zobrazí se přepis.<br />
+        Ťuknutím na čas otevřeš video na daném místě.
+      </div>
+
+      <article id="transcript" class="transcript"></article>
+
+      <div id="actions" class="actions">
+        <div class="actions-row">
+          <button id="ai-copy-btn" class="btn">Kopírovat pro AI</button>
+          <button id="share-btn" class="btn ghost">Sdílet</button>
+        </div>
+        <div class="actions-row">
+          <button id="copy-btn" class="btn ghost">Kopírovat text</button>
+          <button id="download-btn" class="btn ghost">Stáhnout .txt</button>
+        </div>
+      </div>
+
+      <details class="settings">
+        <summary>Nastavení</summary>
+        <div class="settings-body">
+          <div>
+            <label for="lang-input">Preferovaný jazyk titulků</label>
+            <select id="lang-input">
+              <option value="cs,en">Čeština, pak angličtina</option>
+              <option value="en,cs">Angličtina, pak čeština</option>
+              <option value="cs">Jen čeština</option>
+              <option value="en">Jen angličtina</option>
+            </select>
+          </div>
+          <div>
+            <label for="prompt-input">Prompt pro AI (tlačítka „Kopírovat pro AI" a „Sdílet")</label>
+            <textarea id="prompt-input" rows="6" spellcheck="false"></textarea>
+            <p class="hint"><code>{title}</code> se nahradí názvem videa, přepis se připojí na konec.</p>
+          </div>
+          <div>
+            <label for="proxy-select">CORS proxy</label>
+            <select id="proxy-select">
+              <option value="allorigins">AllOrigins (výchozí)</option>
+              <option value="corsproxy">corsproxy.io</option>
+              <option value="codetabs">CodeTabs</option>
+              <option value="worker">Vlastní Cloudflare Worker</option>
+            </select>
+          </div>
+          <div id="worker-wrap">
+            <label for="worker-input">URL Workeru (musí končit <code>?url=</code>)</label>
+            <input
+              id="worker-input"
+              type="text"
+              placeholder="https://nazev.ucet.workers.dev/?url="
+            />
+          </div>
+          <p class="hint">
+            Stránka běží bez vlastního serveru, takže požadavky na YouTube musí
+            jít přes CORS proxy. Veřejné proxy občas spadnou nebo mají limit — appka
+            je při chybě automaticky vystřídá. Pro 100% spolehlivost nasaď vlastní
+            Worker (viz <code>cloudflare-worker.js</code> v repu) a vlož jeho URL sem.
+          </p>
+        </div>
+      </details>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
